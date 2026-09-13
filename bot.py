@@ -1,7 +1,5 @@
 # bot.py
 import asyncio
-import json
-import os
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -10,33 +8,14 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPri
 
 TOKEN = "8956998719:AAGvrOCmF0jx7V78E9fzriOaKZn8wRHURcg"
 ADMIN_ID = 8587976365
-BALANCE_FILE = "balance.json"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-
-def load_data():
-  if os.path.exists(BALANCE_FILE):
-    with open(BALANCE_FILE, "r") as f:
-      data = json.load(f)
-      return {
-          "users": set(data.get("users", [])),
-          "bot_balance": data.get("bot_balance", 0),
-      }
-  return {"users": set(), "bot_balance": 0}
-
-
-def save_data():
-  data_to_save = {
-      "users": list(DATABASE["users"]),
-      "bot_balance": DATABASE["bot_balance"],
-  }
-  with open(BALANCE_FILE, "w") as f:
-    json.dump(data_to_save, f)
-
-
-DATABASE = load_data()
+# Foydalanuvchilar bazasini saqlash uchun oddiy to'plam
+DATABASE = {
+    "users": set(),
+}
 
 
 class GiftStates(StatesGroup):
@@ -64,7 +43,6 @@ GIFTS_LIST = [
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
   DATABASE["users"].add(message.from_user.id)
-  save_data()
   keyboard = InlineKeyboardMarkup(inline_keyboard=[
       [InlineKeyboardButton(text="⭐ Stars hadya qilish", callback_data="donate_star")]
   ])
@@ -115,8 +93,11 @@ async def success_payment_handler(message: types.Message):
   amount = payment.total_amount
   user = message.from_user
 
-  DATABASE["bot_balance"] += amount
-  save_data()
+  # Botning real balansini Telegram'dan so'raymiz
+  try:
+    current_balance = await bot.get_my_star_balance()
+  except Exception:
+    current_balance = amount
 
   await message.answer(
       f"Rahmat! Siz muvaffaqiyatli {amount} ta Stars hadya qildingiz! ⭐"
@@ -129,7 +110,7 @@ async def success_payment_handler(message: types.Message):
         f"👤 Kim tomonidan: {user_name}\n"
         f"🆔 ID: `{user.id}`\n"
         f"💰 Miqdori: **{amount} ta** Stars\n"
-        f"💳 Botdagi umumiy balans: **{DATABASE['bot_balance']} ta** ⭐",
+        f"💳 Botdagi umumiy balans: **{current_balance} ta** ⭐",
         parse_mode="Markdown",
     )
   except Exception as e:
@@ -160,7 +141,12 @@ async def admin_stats_callback(callback: types.CallbackQuery):
     return
 
   total_users = len(DATABASE["users"])
-  balance = DATABASE["bot_balance"]
+  
+  # Bot balansini to'g'ridan-to'g'ri Telegram serveridan olamiz
+  try:
+    balance = await bot.get_my_star_balance()
+  except Exception:
+    balance = 0
 
   text = (
       f"📊 **Bot Statistikasi:**\n\n"
@@ -183,7 +169,12 @@ async def admin_gifts_handler(callback: types.CallbackQuery):
     await callback.answer("Ruxsat yo'q!", show_alert=True)
     return
 
-  bot_balance = DATABASE["bot_balance"]
+  # Bot balansini to'g'ridan-to'g'ri Telegram serveridan olamiz
+  try:
+    bot_balance = await bot.get_my_star_balance()
+  except Exception:
+    bot_balance = 0
+
   text = f"💰 Sizning botdagi balansingiz: **{bot_balance} ⭐**\n\n"
 
   if bot_balance <= 0:
@@ -239,7 +230,12 @@ async def select_gift_handler(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer("Gift topilmadi!", show_alert=True)
     return
 
-  if DATABASE["bot_balance"] < selected_gift["price"]:
+  try:
+    current_balance = await bot.get_my_star_balance()
+  except Exception:
+    current_balance = 0
+
+  if current_balance < selected_gift["price"]:
     await callback.answer("Balansingiz yetmaydi!", show_alert=True)
     return
 
@@ -279,27 +275,31 @@ async def process_custom_text(message: types.Message, state: FSMContext):
   price = data.get("selected_gift_price")
   await state.clear()
 
-  if DATABASE["bot_balance"] < price:
+  try:
+    current_balance = await bot.get_my_star_balance()
+  except Exception:
+    current_balance = 0
+
+  if current_balance < price:
     await message.answer(
         "❌ Xatolik: Balansingizda yetarli stars qolmagan!"
     )
     return
 
   try:
-    DATABASE["bot_balance"] -= price
-    save_data()
-
     await bot.send_gift(
         user_id=target_user_id, gift_id=gift_id, text=custom_text
     )
+    
+    # Yangi balansni Telegram'dan qayta tekshiramiz
+    updated_balance = await bot.get_my_star_balance()
+
     await message.answer(
         f"✅ Gift muvaffaqiyatli yuborildi!\n"
-        f"💰 Qolgan balans: **{DATABASE['bot_balance']} ta** ⭐",
+        f"💰 Qolgan balans: **{updated_balance} ta** ⭐",
         parse_mode="Markdown",
     )
   except Exception as e:
-    DATABASE["bot_balance"] += price
-    save_data()
     await message.answer(f"❌ Gift yuborishda xatolik yuz berdi: {e}")
 
 
