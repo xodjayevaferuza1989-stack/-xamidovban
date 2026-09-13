@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-TOKEN = "8956998719:AAGvrOCmF0jx7V78E9fzriOaKZn8wRHURcg"
+TOKEN = "8956998719:AAEAJPbMJ5MBL2OImtY1KzyCc6Vu7MkO_PA"
 ADMIN_ID = 8587976365
 
 bot = Bot(token=TOKEN)
