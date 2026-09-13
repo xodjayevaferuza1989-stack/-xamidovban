@@ -1,5 +1,7 @@
 # bot.py
 import asyncio
+import json
+import os
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -8,14 +10,33 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPri
 
 TOKEN = "8956998719:AAGvrOCmF0jx7V78E9fzriOaKZn8wRHURcg"
 ADMIN_ID = 8587976365
+BALANCE_FILE = "balance.json"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-DATABASE = {
-    "users": set(),
-    "bot_balance": 0,
-}
+
+def load_data():
+  if os.path.exists(BALANCE_FILE):
+    with open(BALANCE_FILE, "r") as f:
+      data = json.load(f)
+      return {
+          "users": set(data.get("users", [])),
+          "bot_balance": data.get("bot_balance", 0),
+      }
+  return {"users": set(), "bot_balance": 0}
+
+
+def save_data():
+  data_to_save = {
+      "users": list(DATABASE["users"]),
+      "bot_balance": DATABASE["bot_balance"],
+  }
+  with open(BALANCE_FILE, "w") as f:
+    json.dump(data_to_save, f)
+
+
+DATABASE = load_data()
 
 
 class GiftStates(StatesGroup):
@@ -43,6 +64,7 @@ GIFTS_LIST = [
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
   DATABASE["users"].add(message.from_user.id)
+  save_data()
   keyboard = InlineKeyboardMarkup(inline_keyboard=[
       [InlineKeyboardButton(text="⭐ Stars hadya qilish", callback_data="donate_star")]
   ])
@@ -94,6 +116,7 @@ async def success_payment_handler(message: types.Message):
   user = message.from_user
 
   DATABASE["bot_balance"] += amount
+  save_data()
 
   await message.answer(
       f"Rahmat! Siz muvaffaqiyatli {amount} ta Stars hadya qildingiz! ⭐"
@@ -264,6 +287,8 @@ async def process_custom_text(message: types.Message, state: FSMContext):
 
   try:
     DATABASE["bot_balance"] -= price
+    save_data()
+
     await bot.send_gift(
         user_id=target_user_id, gift_id=gift_id, text=custom_text
     )
@@ -274,6 +299,7 @@ async def process_custom_text(message: types.Message, state: FSMContext):
     )
   except Exception as e:
     DATABASE["bot_balance"] += price
+    save_data()
     await message.answer(f"❌ Gift yuborishda xatolik yuz berdi: {e}")
 
 
