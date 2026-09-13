@@ -12,7 +12,6 @@ ADMIN_ID = 8587976365
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Foydalanuvchilar bazasini saqlash uchun oddiy to'plam
 DATABASE = {
     "users": set(),
 }
@@ -38,6 +37,14 @@ GIFTS_LIST = [
     {"id": "5170233102089322756", "name": "🧸 Ayiqcha", "price": 15},
     {"id": "5170145012310081615", "name": "💝 Yurak", "price": 15},
 ]
+
+
+async def get_balance():
+  try:
+    res = await bot.get_my_star_balance()
+    return res.amount if hasattr(res, "amount") else int(res)
+  except Exception:
+    return 0
 
 
 @dp.message(Command("start"))
@@ -93,11 +100,7 @@ async def success_payment_handler(message: types.Message):
   amount = payment.total_amount
   user = message.from_user
 
-  # Botning real balansini Telegram'dan so'raymiz
-  try:
-    current_balance = await bot.get_my_star_balance()
-  except Exception:
-    current_balance = amount
+  current_balance = await get_balance()
 
   await message.answer(
       f"Rahmat! Siz muvaffaqiyatli {amount} ta Stars hadya qildingiz! ⭐"
@@ -141,12 +144,7 @@ async def admin_stats_callback(callback: types.CallbackQuery):
     return
 
   total_users = len(DATABASE["users"])
-  
-  # Bot balansini to'g'ridan-to'g'ri Telegram serveridan olamiz
-  try:
-    balance = await bot.get_my_star_balance()
-  except Exception:
-    balance = 0
+  balance = await get_balance()
 
   text = (
       f"📊 **Bot Statistikasi:**\n\n"
@@ -169,12 +167,7 @@ async def admin_gifts_handler(callback: types.CallbackQuery):
     await callback.answer("Ruxsat yo'q!", show_alert=True)
     return
 
-  # Bot balansini to'g'ridan-to'g'ri Telegram serveridan olamiz
-  try:
-    bot_balance = await bot.get_my_star_balance()
-  except Exception:
-    bot_balance = 0
-
+  bot_balance = await get_balance()
   text = f"💰 Sizning botdagi balansingiz: **{bot_balance} ⭐**\n\n"
 
   if bot_balance <= 0:
@@ -230,11 +223,7 @@ async def select_gift_handler(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer("Gift topilmadi!", show_alert=True)
     return
 
-  try:
-    current_balance = await bot.get_my_star_balance()
-  except Exception:
-    current_balance = 0
-
+  current_balance = await get_balance()
   if current_balance < selected_gift["price"]:
     await callback.answer("Balansingiz yetmaydi!", show_alert=True)
     return
@@ -275,11 +264,7 @@ async def process_custom_text(message: types.Message, state: FSMContext):
   price = data.get("selected_gift_price")
   await state.clear()
 
-  try:
-    current_balance = await bot.get_my_star_balance()
-  except Exception:
-    current_balance = 0
-
+  current_balance = await get_balance()
   if current_balance < price:
     await message.answer(
         "❌ Xatolik: Balansingizda yetarli stars qolmagan!"
@@ -290,9 +275,7 @@ async def process_custom_text(message: types.Message, state: FSMContext):
     await bot.send_gift(
         user_id=target_user_id, gift_id=gift_id, text=custom_text
     )
-    
-    # Yangi balansni Telegram'dan qayta tekshiramiz
-    updated_balance = await bot.get_my_star_balance()
+    updated_balance = await get_balance()
 
     await message.answer(
         f"✅ Gift muvaffaqiyatli yuborildi!\n"
