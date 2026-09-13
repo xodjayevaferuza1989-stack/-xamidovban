@@ -1,3 +1,4 @@
+# bot.py
 import asyncio
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -6,15 +7,14 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
 TOKEN = "8956998719:AAGvrOCmF0jx7V78E9fzriOaKZn8wRHURcg"
-ADMIN_ID = 8587976365  # Siz ko'rsatgan admin ID
+ADMIN_ID = 8587976365
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Bazani to'liq ushlab turish uchun (test rejimida 15 ta stars bilan boshlanadi)
 DATABASE = {
     "users": set(),
-    "bot_balance": 15,  # Rasmda 15 stars ko'ringani uchun sinovga qo'yildi
+    "bot_balance": 0,
 }
 
 
@@ -43,7 +43,6 @@ GIFTS_LIST = [
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
   DATABASE["users"].add(message.from_user.id)
-
   keyboard = InlineKeyboardMarkup(inline_keyboard=[
       [InlineKeyboardButton(text="⭐ Stars hadya qilish", callback_data="donate_star")]
   ])
@@ -114,7 +113,6 @@ async def success_payment_handler(message: types.Message):
     print(f"Adminga xabar yuborishda xatolik: {e}")
 
 
-# --- ADMIN PANEL ---
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
   if message.from_user.id != ADMIN_ID:
@@ -213,7 +211,6 @@ async def select_gift_handler(callback: types.CallbackQuery, state: FSMContext):
     return
 
   gift_id = callback.data.split("select_gift_", 1)[1]
-
   selected_gift = next((g for g in GIFTS_LIST if g["id"] == gift_id), None)
   if not selected_gift:
     await callback.answer("Gift topilmadi!", show_alert=True)
@@ -267,12 +264,13 @@ async def process_custom_text(message: types.Message, state: FSMContext):
 
   try:
     DATABASE["bot_balance"] -= price
-
     await bot.send_gift(
         user_id=target_user_id, gift_id=gift_id, text=custom_text
     )
     await message.answer(
-        f"✅ Gift ID: `{target_user_id}` ga muvaffaqiyatli yuborildi!"
+        f"✅ Gift muvaffaqiyatli yuborildi!\n"
+        f"💰 Qolgan balans: **{DATABASE['bot_balance']} ta** ⭐",
+        parse_mode="Markdown",
     )
   except Exception as e:
     DATABASE["bot_balance"] += price
