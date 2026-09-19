@@ -6,10 +6,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
 # --- SOZLAMALAR ---
-# Tokeningizni va Admin ID raqamingizni shu yerga yozing
-BOT_TOKEN=8711985924:AAEROk3VMvDe6fVRSlTmPRMq0fyjqfmGLwI
-ADMIN_ID=8587976365
-
+TOKEN = "8711985924:AAEROk3VMvDe6fVRS1TmPRMq0fyjqfmGLwI"
+ADMIN_ID = 8587976365  # O'z Telegram ID raqamingiz
 # ------------------
 
 bot = Bot(token=TOKEN)
