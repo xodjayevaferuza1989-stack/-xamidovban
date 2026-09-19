@@ -6,7 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
 # --- SOZLAMALAR ---
-TOKEN = "8711985924:AAEROk3VMvDe6fVRS1TmPRMq0fyjqfmGLwI"
+TOKEN = "8711985924:AAE4Rtj_6lodJhCGF0Jhzj473VnG14-0sb8"
 ADMIN_ID = 8587976365
 # ------------------
 
