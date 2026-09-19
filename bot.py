@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPri
 
 # --- SOZLAMALAR ---
 # Tokeningizni va Admin ID raqamingizni shu yerga yozing
-BOT_TOKEN=8711985924:AAEp3RiqB0Ffn7HceLxeTxAd_EpZzmdNaYg
+BOT_TOKEN=8711985924:AAEROk3VMvDe6fVRSlTmPRMq0fyjqfmGLwI
 ADMIN_ID=8587976365
 
 # ------------------
