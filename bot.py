@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPri
 
 # --- SOZLAMALAR ---
 TOKEN = "8711985924:AAEROk3VMvDe6fVRS1TmPRMq0fyjqfmGLwI"
-ADMIN_ID = 8587976365  # O'z Telegram ID raqamingiz
+ADMIN_ID = 8587976365
 # ------------------
 
 bot = Bot(token=TOKEN)
@@ -25,7 +25,6 @@ class GiftStates(StatesGroup):
     selected_gift_price = State()
 
 
-# Hozirda ishlaydigan rasmiy giftlar ro'yxati
 GIFTS_LIST = [
     {"id": "6028601630662853006", "name": "🍾 Shampan", "price": 50},
     {"id": "5170521118301225164", "name": "💎 Brilliant", "price": 100},
@@ -200,7 +199,7 @@ async def admin_gifts_handler(callback: types.CallbackQuery):
                 cb_data = f"select_gift_{gift['id']}"
             else:
                 btn_text = f"🔒 {gift['name']} ({gift['price']} ⭐) - Yetmaydi"
-                cb_data = "gift_not_enabled" # xatolikni oldini olish uchun
+                cb_data = "gift_not_enough"
             keyboard_buttons.append([InlineKeyboardButton(text=btn_text, callback_data=cb_data)])
         keyboard_buttons.append([
             InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
@@ -242,8 +241,7 @@ async def select_gift_handler(callback: types.CallbackQuery, state: FSMContext):
     )
 
     await callback.message.answer(
-        "👤 Gift yuborilishi kerak bo'lgan foydalanuvchining **Telegram ID**"
-        " raqamini yuboring:"
+        "👤 Gift yuborilishi kerak bo'lgan foydalanuvchining **Telegram ID** raqamini yuboring:"
     )
     await state.set_state(GiftStates.waiting_for_user_id)
     await callback.answer()
