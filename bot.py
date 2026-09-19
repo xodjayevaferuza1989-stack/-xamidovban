@@ -1,4 +1,3 @@
-# bot.py
 import asyncio
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -6,8 +5,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-TOKEN = "8956998719:AAEAJPbMJ5MBL2OImtY1KzyCc6Vu7MkO_PA"
-ADMIN_ID = 8587976365
+# --- SOZLAMALAR ---
+# Tokeningizni va Admin ID raqamingizni shu yerga yozing
+BOT_TOKEN=8711985924:AAEp3RiqB0Ffn7HceLxeTxAd_EpZzmdNaYg
+ADMIN_ID=8587976365
+
+# ------------------
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -18,12 +21,13 @@ DATABASE = {
 
 
 class GiftStates(StatesGroup):
-  waiting_for_user_id = State()
-  waiting_for_custom_text = State()
-  selected_gift_id = State()
-  selected_gift_price = State()
+    waiting_for_user_id = State()
+    waiting_for_custom_text = State()
+    selected_gift_id = State()
+    selected_gift_price = State()
 
 
+# Hozirda ishlaydigan rasmiy giftlar ro'yxati
 GIFTS_LIST = [
     {"id": "6028601630662853006", "name": "🍾 Shampan", "price": 50},
     {"id": "5170521118301225164", "name": "💎 Brilliant", "price": 100},
@@ -40,272 +44,275 @@ GIFTS_LIST = [
 
 
 async def get_balance():
-  try:
-    res = await bot.get_my_star_balance()
-    return res.amount if hasattr(res, "amount") else int(res)
-  except Exception:
-    return 0
+    try:
+        res = await bot.get_my_star_balance()
+        return res.amount if hasattr(res, "amount") else int(res)
+    except Exception:
+        return 0
 
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-  DATABASE["users"].add(message.from_user.id)
-  keyboard = InlineKeyboardMarkup(inline_keyboard=[
-      [InlineKeyboardButton(text="⭐ Stars hadya qilish", callback_data="donate_star")]
-  ])
-  await message.answer(
-      "Salom! Botimiz orqali loyihaga Stars hadya qilishingiz mumkin.",
-      reply_markup=keyboard,
-  )
+    user = message.from_user
+    is_new = user.id not in DATABASE["users"]
+
+    if is_new:
+        DATABASE["users"].add(user.id)
+        try:
+            user_name = f"@{user.username}" if user.username else user.full_name
+            total_users = len(DATABASE["users"])
+            await bot.send_message(
+                ADMIN_ID,
+                f"👤 **Yangi foydalanuvchi qo'shildi!**\n\n"
+                f"▫️ Ismi: {user_name}\n"
+                f"▫️ ID: `{user.id}`\n"
+                f"📊 Jami foydalanuvchilar: **{total_users} ta**",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            print(f"Adminga xabar yuborishda xatolik: {e}")
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⭐ Stars hadya qilish", callback_data="donate_star")]
+    ])
+    await message.answer(
+        "Salom! Botimiz orqali loyihaga Stars hadya qilishingiz mumkin.",
+        reply_markup=keyboard,
+    )
 
 
 @dp.callback_query(F.data == "donate_star")
 async def donate_callback(callback: types.CallbackQuery, state: FSMContext):
-  await callback.message.answer(
-      "Nechta Stars hadya qilmoqchisiz? (Faqat raqam kiriting, masalan: 15)"
-  )
-  await state.set_state(GiftStates.selected_gift_price)
-  await callback.answer()
+    await callback.message.answer(
+        "Nechta Stars hadya qilmoqchisiz? (Faqat raqam kiriting, masalan: 15)"
+    )
+    await state.set_state(GiftStates.selected_gift_price)
+    await callback.answer()
 
 
 @dp.message(GiftStates.selected_gift_price)
 async def process_stars_amount(message: types.Message, state: FSMContext):
-  if not message.text.isdigit():
-    await message.answer("Iltimos, faqat butun son kiriting:")
-    return
+    if not message.text.isdigit():
+        await message.answer("Iltimos, faqat butun son kiriting:")
+        return
 
-  amount = int(message.text)
-  if amount < 1:
-    await message.answer("Miqdor 1 dan kam bo'lmasligi kerak.")
-    return
+    amount = int(message.text)
+    if amount < 1:
+        await message.answer("Miqdor 1 dan kam bo'lmasligi kerak.")
+        return
 
-  await state.clear()
-  await message.answer_invoice(
-      title="Stars Hadya qilish",
-      description=f"Loyihaga {amount} ta Stars hadya qilish",
-      payload=f"gift_stars_{amount}",
-      currency="XTR",
-      prices=[LabeledPrice(label="Stars", amount=amount)],
-  )
+    await state.clear()
+    await message.answer_invoice(
+        title="Stars Hadya qilish",
+        description=f"Loyihaga {amount} ta Stars hadya qilish",
+        payload=f"gift_stars_{amount}",
+        currency="XTR",
+        prices=[LabeledPrice(label="Stars", amount=amount)],
+    )
 
 
 @dp.pre_checkout_query()
 async def pre_checkout_handler(pre_checkout_query: types.PreCheckoutQuery):
-  await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
 
 @dp.message(F.successful_payment)
 async def success_payment_handler(message: types.Message):
-  payment = message.successful_payment
-  amount = payment.total_amount
-  user = message.from_user
+    payment = message.successful_payment
+    amount = payment.total_amount
+    user = message.from_user
 
-  current_balance = await get_balance()
+    current_balance = await get_balance()
 
-  await message.answer(
-      f"Rahmat! Siz muvaffaqiyatli {amount} ta Stars hadya qildingiz! ⭐"
-  )
-  try:
-    user_name = f"@{user.username}" if user.username else user.full_name
-    await bot.send_message(
-        ADMIN_ID,
-        f"⭐ **Yangi Stars hadya qilindi!**\n\n"
-        f"👤 Kim tomonidan: {user_name}\n"
-        f"🆔 ID: `{user.id}`\n"
-        f"💰 Miqdori: **{amount} ta** Stars\n"
-        f"💳 Botdagi umumiy balans: **{current_balance} ta** ⭐",
-        parse_mode="Markdown",
+    await message.answer(
+        f"Rahmat! Siz muvaffaqiyatli {amount} ta Stars hadya qildingiz! ⭐"
     )
-  except Exception as e:
-    print(f"Adminga xabar yuborishda xatolik: {e}")
+    try:
+        user_name = f"@{user.username}" if user.username else user.full_name
+        await bot.send_message(
+            ADMIN_ID,
+            f"⭐ **Yangi Stars hadya qilindi!**\n\n"
+            f"👤 Kim tomonidan: {user_name}\n"
+            f"🆔 ID: `{user.id}`\n"
+            f"💰 Miqdori: **{amount} ta** Stars\n"
+            f"💳 Botdagi umumiy balans: **{current_balance} ta** ⭐",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        print(f"Adminga xabar yuborishda xatolik: {e}")
 
 
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
-  if message.from_user.id != ADMIN_ID:
-    await message.answer("Siz admin emassiz!")
-    return
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("Siz admin emassiz!")
+        return
 
-  keyboard = InlineKeyboardMarkup(inline_keyboard=[
-      [InlineKeyboardButton(text="🎁 Gift yechish", callback_data="admin_gifts")],
-      [
-          InlineKeyboardButton(
-              text="📊 Statistika", callback_data="admin_stats"
-          )
-      ],
-  ])
-  await message.answer("👑 Admin panelga xush kelibsiz:", reply_markup=keyboard)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎁 Gift yechish", callback_data="admin_gifts")],
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")],
+    ])
+    await message.answer("👑 Admin panelga xush kelibsiz:", reply_markup=keyboard)
 
 
 @dp.callback_query(F.data == "admin_stats")
 async def admin_stats_callback(callback: types.CallbackQuery):
-  if callback.from_user.id != ADMIN_ID:
-    await callback.answer("Ruxsat yo'q!", show_alert=True)
-    return
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Ruxsat yo'q!", show_alert=True)
+        return
 
-  total_users = len(DATABASE["users"])
-  balance = await get_balance()
+    total_users = len(DATABASE["users"])
+    balance = await get_balance()
 
-  text = (
-      f"📊 **Bot Statistikasi:**\n\n"
-      f"👥 Foydalanuvchilar soni: **{total_users} ta**\n"
-      f"⭐ Jami yig'ilgan balans: **{balance} ⭐**"
-  )
+    text = (
+        f"📊 **Bot Statistikasi:**\n\n"
+        f"👥 Foydalanuvchilar soni: **{total_users} ta**\n"
+        f"⭐ Jami yig'ilgan balans: **{balance} ⭐**"
+    )
 
-  await callback.message.edit_text(
-      text,
-      reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-          InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
-      ]]),
-      parse_mode="Markdown",
-  )
+    await callback.message.edit_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
+        ]]),
+        parse_mode="Markdown",
+    )
 
 
 @dp.callback_query(F.data == "admin_gifts")
 async def admin_gifts_handler(callback: types.CallbackQuery):
-  if callback.from_user.id != ADMIN_ID:
-    await callback.answer("Ruxsat yo'q!", show_alert=True)
-    return
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Ruxsat yo'q!", show_alert=True)
+        return
 
-  bot_balance = await get_balance()
-  text = f"💰 Sizning botdagi balansingiz: **{bot_balance} ⭐**\n\n"
+    bot_balance = await get_balance()
+    text = f"💰 Sizning botdagi balansingiz: **{bot_balance} ⭐**\n\n"
 
-  if bot_balance <= 0:
-    text += "❌ Balansingizda stars mavjud emas!"
-    keyboard_buttons = [[
-        InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
-    ]]
-  else:
-    can_afford_any = any(bot_balance >= gift["price"] for gift in GIFTS_LIST)
-    if not can_afford_any:
-      text += "❌ Balansingizdagi stars hech qanday gift narxiga yetmaydi!"
-      keyboard_buttons = [[
-          InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
-      ]]
+    if bot_balance <= 0:
+        text += "❌ Balansingizda stars mavjud emas!"
+        keyboard_buttons = [[
+            InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
+        ]]
     else:
-      text += "✅ Siz quyidagi giftlarni yuborishingiz mumkin:"
-      keyboard_buttons = []
-      for gift in GIFTS_LIST:
-        if bot_balance >= gift["price"]:
-          btn_text = f"✅ {gift['name']} ({gift['price']} ⭐)"
-          cb_data = f"select_gift_{gift['id']}"
-        else:
-          btn_text = f"🔒 {gift['name']} ({gift['price']} ⭐) - Yetmaydi"
-          cb_data = "gift_not_enough"
-        keyboard_buttons.append([InlineKeyboardButton(text=btn_text, callback_data=cb_data)])
-      keyboard_buttons.append([
-          InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
-      ])
+        text += "✅ Siz quyidagi giftlarni yuborishingiz mumkin:"
+        keyboard_buttons = []
+        for gift in GIFTS_LIST:
+            if bot_balance >= gift["price"]:
+                btn_text = f"✅ {gift['name']} ({gift['price']} ⭐)"
+                cb_data = f"select_gift_{gift['id']}"
+            else:
+                btn_text = f"🔒 {gift['name']} ({gift['price']} ⭐) - Yetmaydi"
+                cb_data = "gift_not_enabled" # xatolikni oldini olish uchun
+            keyboard_buttons.append([InlineKeyboardButton(text=btn_text, callback_data=cb_data)])
+        keyboard_buttons.append([
+            InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_admin")
+        ])
 
-  await callback.message.edit_text(
-      text,
-      reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons),
-      parse_mode="Markdown",
-  )
+    await callback.message.edit_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons),
+        parse_mode="Markdown",
+    )
 
 
 @dp.callback_query(F.data == "gift_not_enough")
 async def gift_not_enough_alert(callback: types.CallbackQuery):
-  await callback.answer(
-      "❌ Balansingiz bu giftga yetmaydi yoki stars mavjud emas!",
-      show_alert=True,
-  )
+    await callback.answer(
+        "❌ Balansingiz bu giftga yetmaydi yoki stars mavjud emas!",
+        show_alert=True,
+    )
 
 
 @dp.callback_query(F.data.startswith("select_gift_"))
 async def select_gift_handler(callback: types.CallbackQuery, state: FSMContext):
-  if callback.from_user.id != ADMIN_ID:
-    return
+    if callback.from_user.id != ADMIN_ID:
+        return
 
-  gift_id = callback.data.split("select_gift_", 1)[1]
-  selected_gift = next((g for g in GIFTS_LIST if g["id"] == gift_id), None)
-  if not selected_gift:
-    await callback.answer("Gift topilmadi!", show_alert=True)
-    return
+    gift_id = callback.data.split("select_gift_", 1)[1]
+    selected_gift = next((g for g in GIFTS_LIST if g["id"] == gift_id), None)
+    if not selected_gift:
+        await callback.answer("Gift topilmadi!", show_alert=True)
+        return
 
-  current_balance = await get_balance()
-  if current_balance < selected_gift["price"]:
-    await callback.answer("Balansingiz yetmaydi!", show_alert=True)
-    return
+    current_balance = await get_balance()
+    if current_balance < selected_gift["price"]:
+        await callback.answer("Balansingiz yetmaydi!", show_alert=True)
+        return
 
-  await state.update_data(
-      selected_gift_id=gift_id, selected_gift_price=selected_gift["price"]
-  )
+    await state.update_data(
+        selected_gift_id=gift_id, selected_gift_price=selected_gift["price"]
+    )
 
-  await callback.message.answer(
-      "👤 Gift yuborilishi kerak bo'lgan foydalanuvchining **Telegram ID**"
-      " raqamini yuboring:"
-  )
-  await state.set_state(GiftStates.waiting_for_user_id)
-  await callback.answer()
+    await callback.message.answer(
+        "👤 Gift yuborilishi kerak bo'lgan foydalanuvchining **Telegram ID**"
+        " raqamini yuboring:"
+    )
+    await state.set_state(GiftStates.waiting_for_user_id)
+    await callback.answer()
 
 
 @dp.message(GiftStates.waiting_for_user_id)
 async def process_user_id(message: types.Message, state: FSMContext):
-  if not message.text.isdigit():
-    await message.answer("Iltimos, to'g'ri Telegram ID raqamini kiriting:")
-    return
+    if not message.text.isdigit():
+        await message.answer("Iltimos, to'g'ri Telegram ID raqamini kiriting:")
+        return
 
-  target_user_id = int(message.text)
-  await state.update_data(target_user_id=target_user_id)
+    target_user_id = int(message.text)
+    await state.update_data(target_user_id=target_user_id)
 
-  await message.answer(
-      "✍️ Gift bilan birga yuboriladigan matnni (xabarni) kiriting:"
-  )
-  await state.set_state(GiftStates.waiting_for_custom_text)
+    await message.answer(
+        "✍️ Gift bilan birga yuboriladigan matnni (xabarni) kiriting:"
+    )
+    await state.set_state(GiftStates.waiting_for_custom_text)
 
 
 @dp.message(GiftStates.waiting_for_custom_text)
 async def process_custom_text(message: types.Message, state: FSMContext):
-  custom_text = message.text
-  data = await state.get_data()
-  target_user_id = data.get("target_user_id")
-  gift_id = data.get("selected_gift_id")
-  price = data.get("selected_gift_price")
-  await state.clear()
+    custom_text = message.text
+    data = await state.get_data()
+    target_user_id = data.get("target_user_id")
+    gift_id = data.get("selected_gift_id")
+    price = data.get("selected_gift_price")
+    await state.clear()
 
-  current_balance = await get_balance()
-  if current_balance < price:
-    await message.answer(
-        "❌ Xatolik: Balansingizda yetarli stars qolmagan!"
-    )
-    return
+    current_balance = await get_balance()
+    if current_balance < price:
+        await message.answer(
+            "❌ Xatolik: Balansingizda yetarli stars qolmagan!"
+        )
+        return
 
-  try:
-    await bot.send_gift(
-        user_id=target_user_id, gift_id=gift_id, text=custom_text
-    )
-    updated_balance = await get_balance()
+    try:
+        await bot.send_gift(
+            user_id=target_user_id, gift_id=gift_id, text=custom_text
+        )
+        updated_balance = await get_balance()
 
-    await message.answer(
-        f"✅ Gift muvaffaqiyatli yuborildi!\n"
-        f"💰 Qolgan balans: **{updated_balance} ta** ⭐",
-        parse_mode="Markdown",
-    )
-  except Exception as e:
-    await message.answer(f"❌ Gift yuborishda xatolik yuz berdi: {e}")
+        await message.answer(
+            f"✅ Gift muvaffaqiyatli yuborildi!\n"
+            f"💰 Qolgan balans: **{updated_balance} ta** ⭐",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        await message.answer(f"❌ Gift yuborishda xatolik yuz berdi: {e}")
 
 
 @dp.callback_query(F.data == "back_to_admin")
 async def back_admin(callback: types.CallbackQuery):
-  if callback.from_user.id != ADMIN_ID:
-    return
-  keyboard = InlineKeyboardMarkup(inline_keyboard=[
-      [InlineKeyboardButton(text="🎁 Gift yechish", callback_data="admin_gifts")],
-      [
-          InlineKeyboardButton(
-              text="📊 Statistika", callback_data="admin_stats"
-          )
-      ],
-  ])
-  await callback.message.edit_text(
-      "👑 Admin panelga xush kelibsiz:", reply_markup=keyboard
-  )
+    if callback.from_user.id != ADMIN_ID:
+        return
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎁 Gift yechish", callback_data="admin_gifts")],
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")],
+    ])
+    await callback.message.edit_text(
+        "👑 Admin panelga xush kelibsiz:", reply_markup=keyboard
+    )
 
 
 async def main():
-  await dp.start_polling(bot)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-  asyncio.run(main())
+    asyncio.run(main())
